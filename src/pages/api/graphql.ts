@@ -66,14 +66,14 @@ const resolvers = {
       }
 
       try {
-        const response = await axios.get<ApiResponse>('https://digitalapi.auspost.com.au/postcode/search.json', {
+        const response = await axios.get<ApiResponse>(process.env.API_URL!, {
           params: {
             q: queryString,
             state: state,
             excludePostBoxFlag: true,
           },
           headers: {
-            'AUTH-KEY': '872608e3-4530-4c6a-a369-052accb03ca8',
+            'AUTH-KEY': process.env.API_KEY,
           },
         })
 
@@ -114,6 +114,12 @@ const resolvers = {
 const apolloServer = new ApolloServer({ typeDefs, resolvers })
 
 let isApolloServerStarted = false
+
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+}
 
 const startServerAndCreateHandler = async () => {
   if (!isApolloServerStarted) {
