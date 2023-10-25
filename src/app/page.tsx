@@ -1,95 +1,124 @@
-import Image from 'next/image'
+'use client'
+
+import React, { useState } from 'react'
+import { useQuery, ApolloClient, InMemoryCache, gql, ApolloProvider } from '@apollo/client'
 import styles from './page.module.css'
+
+const client = new ApolloClient({
+  uri: '/api/graphql',
+  cache: new InMemoryCache(),
+})
+
+interface Ilocality {
+  category: string
+  id: string
+  latitude: number
+  location: string
+  longitude: number
+  postcode: number
+  state: string
+}
+
+interface PostcodeValidatorData {
+  validatePostcode: {
+    localities: {
+      locality: Ilocality[]
+    }
+    errorMessage: string
+  }
+}
+
+interface PostcodeValidatorVariables {
+  queryString: string
+  state: string
+}
+
+const VALIDATE_POSTCODE = gql`
+  query validatePostcode($queryString: String!, $state: String!) {
+    validatePostcode(queryString: $queryString, state: $state) {
+      ... on ILocalities {
+        localities {
+          locality {
+            category
+            id
+            latitude
+            location
+            longitude
+            postcode
+            state
+          }
+        }
+      }
+      ... on Error {
+        errorMessage
+      }
+    }
+  }
+`
+
+export const PostcodeValidator = () => {
+  const [postcode, setPostcode] = useState('')
+  const [suburb, setSuburb] = useState('')
+  const [state, setState] = useState('')
+  const [result, setResult] = useState<Ilocality[]>([])
+  const [validateError, setValidateError] = useState('')
+
+  function handleValidate(data: Ilocality[]) {
+    const isValidSuburbPostCode = data.filter((locality) => locality.location.toLowerCase().includes(suburb.toLowerCase()) && locality.postcode === +postcode)
+    if (!isValidSuburbPostCode?.length) {
+      setValidateError(`The postcode ${postcode} does not match the suburb ${suburb.toUpperCase()}.`)
+      return
+    }
+
+    const isValidSuburbState = data.filter((locality) => locality.location.toLowerCase().includes(suburb.toLowerCase()) && locality.state === state.toUpperCase())
+
+    if (!isValidSuburbState?.length) {
+      setValidateError(`The suburb ${suburb} does not exist in the state ${state}.`)
+      return
+    }
+
+    const isValidData = data.filter((locality) => locality.location.toLowerCase().includes(suburb.toLowerCase()) && locality.state === state.toUpperCase() && locality.postcode === +postcode)
+    console.log(isValidData)
+
+    if (isValidData?.length) {
+      setResult(isValidData)
+      setValidateError('The postcode, suburb, and state input are valid.')
+    }
+  }
+
+  const { loading } = useQuery<PostcodeValidatorData, PostcodeValidatorVariables>(VALIDATE_POSTCODE, {
+    variables: { queryString: suburb, state },
+    client,
+    onCompleted: (data) => {
+      if (data.validatePostcode.errorMessage) {
+        return
+      }
+      setResult(data.validatePostcode.localities.locality)
+      setValidateError('')
+    },
+  })
+
+  return (
+    <div className={styles.container}>
+      <h2>Australian Postcode Validator</h2>
+      <form className={styles.form}>
+        <input className={styles.gap} type="text" placeholder="Postcode" value={postcode} onChange={(e) => setPostcode(e.target.value)} />
+        <input className={styles.gap} type="text" placeholder="Suburb" value={suburb} onChange={(e) => setSuburb(e.target.value)} />
+        <input className={styles.gap} type="text" placeholder="State" value={state} onChange={(e) => setState(e.target.value)} />
+        <button className={styles.gap} type="button" onClick={() => handleValidate(result)} disabled={loading}>
+          Validate
+        </button>
+      </form>
+      {loading && <p>Loading...</p>}
+      {validateError && <p>{validateError}</p>}
+    </div>
+  )
+}
 
 export default function Home() {
   return (
-    <main className={styles.main}>
-      <div className={styles.description}>
-        <p>
-          Get started by editing&nbsp;
-          <code className={styles.code}>src/app/page.tsx</code>
-        </p>
-        <div>
-          <a
-            href="https://vercel.com?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            By{' '}
-            <Image
-              src="/vercel.svg"
-              alt="Vercel Logo"
-              className={styles.vercelLogo}
-              width={100}
-              height={24}
-              priority
-            />
-          </a>
-        </div>
-      </div>
-
-      <div className={styles.center}>
-        <Image
-          className={styles.logo}
-          src="/next.svg"
-          alt="Next.js Logo"
-          width={180}
-          height={37}
-          priority
-        />
-      </div>
-
-      <div className={styles.grid}>
-        <a
-          href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className={styles.card}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2>
-            Docs <span>-&gt;</span>
-          </h2>
-          <p>Find in-depth information about Next.js features and API.</p>
-        </a>
-
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className={styles.card}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2>
-            Learn <span>-&gt;</span>
-          </h2>
-          <p>Learn about Next.js in an interactive course with&nbsp;quizzes!</p>
-        </a>
-
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className={styles.card}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2>
-            Templates <span>-&gt;</span>
-          </h2>
-          <p>Explore the Next.js 13 playground.</p>
-        </a>
-
-        <a
-          href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className={styles.card}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2>
-            Deploy <span>-&gt;</span>
-          </h2>
-          <p>
-            Instantly deploy your Next.js site to a shareable URL with Vercel.
-          </p>
-        </a>
-      </div>
-    </main>
+    <ApolloProvider client={client}>
+      <PostcodeValidator />
+    </ApolloProvider>
   )
 }
